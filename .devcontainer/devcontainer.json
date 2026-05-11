@@ -21,7 +21,7 @@
   "portsAttributes": {
     "1521": { "label": "Oracle DB", "onAutoForward": "silent" },
     "8000": { "label": "Agent Backend (Flask)", "onAutoForward": "silent" },
-    "3000": { "label": "Agent UI (Vite)", "onAutoForward": "openPreview" }
+    "3000": { "label": "Agent UI (Vite)", "onAutoForward": "notify" }
   },
 
   "onCreateCommand": "bash .devcontainer/setup_build.sh",
