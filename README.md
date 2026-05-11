@@ -2,7 +2,7 @@
 
 **Build a memory-aware enterprise data agent on Oracle AI Database 26ai — then see it running in a real chat UI.**
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/oracle-devrel/enterprise-data-agent-workshop)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/speechlyze/enterprise-data-agent-harness-workshop)
 
 ---
 
@@ -130,8 +130,8 @@ For permanent fixes, add `OPENAI_API_KEY` (or `OCI_GENAI_API_KEY`) as a [Codespa
 ### Option B: Local development
 
 ```bash
-git clone https://github.com/oracle-devrel/enterprise-data-agent-workshop
-cd enterprise-data-agent-workshop
+git clone https://github.com/speechlyze/enterprise-data-agent-harness-workshop
+cd enterprise-data-agent-harness-workshop
 
 # 1. Start Oracle AI Database
 docker compose -f .devcontainer/docker-compose.yml up -d oracle
