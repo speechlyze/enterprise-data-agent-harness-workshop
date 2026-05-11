@@ -95,6 +95,38 @@ The whole loop is roughly 300 lines of Python; the rest is database primitives.
 
 > **First-run note:** The first auto-bootstrap can take 5–8 minutes (Oracle Free image is ~3 GB and the ONNX embedder is ~117 MB). Subsequent Codespace opens are ~30 seconds — `start_app.sh` just brings the app back up against the existing Oracle volume.
 
+### App preview shows "HTTP ERROR 502" or "This page isn't working"
+
+`502` from `*.app.github.dev:3000` means port 3000 isn't serving yet — either the Vite dev server hasn't bound, the Flask backend (`:8000`) crashed during init, or you clicked the preview before `start_app.sh` finished. In a Codespace terminal:
+
+```bash
+# What's actually running?
+ps aux | grep -E "(python app.py|vite|npm.*dev)" | grep -v grep
+
+# Logs (look at the last error)
+tail -60 .devcontainer/logs/backend.log
+tail -40 .devcontainer/logs/frontend.log
+
+# Most-common fix — just re-run the start script
+bash .devcontainer/start_app.sh
+```
+
+If the backend log shows an Oracle connection error, the bootstrap step probably didn't finish:
+
+```bash
+bash .devcontainer/setup_runtime.sh    # idempotent — re-runs bootstrap + seed + advanced setup
+bash .devcontainer/start_app.sh
+```
+
+If the backend log shows `OPENAI_API_KEY is None` or an `AuthenticationError`, the Codespace doesn't have an LLM key set. Add one:
+
+```bash
+echo 'OPENAI_API_KEY=sk-...' >> app/.env
+bash .devcontainer/start_app.sh
+```
+
+For permanent fixes, add `OPENAI_API_KEY` (or `OCI_GENAI_API_KEY`) as a [Codespaces secret](https://github.com/settings/codespaces) and rebuild the Codespace.
+
 ### Option B: Local development
 
 ```bash

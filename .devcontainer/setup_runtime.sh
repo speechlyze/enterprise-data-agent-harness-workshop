@@ -2,14 +2,34 @@
 # postCreateCommand — runs ONCE after the Codespace is built.
 # Boots Oracle, bootstraps the AGENT user / vector pool / ONNX embedder,
 # seeds SUPPLYCHAIN + the skillbox.
+#
+# IMPORTANT: we deliberately do NOT use `set -e`. A failure in seed (e.g. an LLM
+# auth issue during the optional knowledge scan) should not block the Codespace
+# from finishing — the app's postStartCommand will run regardless, and the
+# learner can re-run individual steps from the terminal. Each step prints its
+# own status so the failure is visible.
 
-set -e
+set +e
+set -u
 
 echo "============================================"
 echo "  Enterprise Data Agent Workshop — Runtime Setup (one-time)"
 echo "============================================"
 
 WORKSPACE="${WORKSPACE:-$(pwd)}"
+
+# Surface upfront whether we have an LLM key. The seed step works without one
+# (memory-extraction is best-effort) but the app's chat loop will fail without it.
+if [ -z "${OPENAI_API_KEY:-}" ] && [ -z "${OCI_GENAI_API_KEY:-}" ]; then
+  echo ""
+  echo "  ⚠️  No LLM key found in environment (OPENAI_API_KEY / OCI_GENAI_API_KEY)."
+  echo "      Setup will proceed and the workshop notebook will work for everything"
+  echo "      except the chat loop. To enable the chat loop later:"
+  echo ""
+  echo "        echo 'OPENAI_API_KEY=sk-...' >> $WORKSPACE/app/.env"
+  echo "        bash .devcontainer/start_app.sh"
+  echo ""
+fi
 
 # --- 1. Wait for Docker daemon ---
 echo ""
