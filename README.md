@@ -8,11 +8,13 @@
 
 ## What You Will Build (and Run)
 
+> **From notebook concept to running application.** You build the harness in the notebook, primitive by primitive. The Codespace already has the *same* harness running as a Flask + React app on the *same* Oracle — open it at [http://localhost:3000](http://localhost:3000) and watch the concept you're coding become a live product. The notebook teaches the pattern; the app shows it deployed.
+
 This workshop is two halves of the same thing:
 
 1. **The notebook** (`workshop/notebook_student.ipynb`) — you build the harness from primitives. Long-term memory via OAMP, hybrid vector + Oracle Text retrieval, an HNSW-indexed `toolbox`, the `agent_turn` loop, identity-aware DDS row policies, JSON Relational Duality Views, the `DBMS_SCHEDULER` re-scan pattern, tool-output offload. **6 focused coding TODOs across 11 parts**, ~1 hour.
 
-2. **The app** (`app/`) — a Flask + React reference deployment of the *same* harness against the *same* Oracle. Chat UI on the left, live-updating memory pane on the right, 3D globe the agent can drive via tool calls. The Codespace boots the app for you on first launch — open `http://localhost:3000` and ask a question.
+2. **The app** (`app/`) — a Flask + React reference deployment of the *same* harness against the *same* Oracle, same OAMP store, same `toolbox` and `skillbox` the notebook populates. Chat UI on the left, live-updating memory pane on the right, 3D globe the agent can drive via tool calls. The Codespace boots the app for you on first launch and auto-opens the browser preview at `http://localhost:3000` — every harness piece you build in the notebook is wired up live in this app.
 
 The notebook is **11 parts with 6 hands-on coding TODOs**. Every "true setup" task — `AGENT` user creation, vector memory allocation, ONNX model loading, the `SUPPLYCHAIN` seed, JSON Relational Duality View DDL, DDS policies, the `DBMS_SCHEDULER` job — is run by the Codespace **before** you open the notebook (`app/scripts/bootstrap.py`, `seed.py`, `setup_advanced.py`). Each TODO has a hard-stop assert below it so a broken implementation surfaces immediately. Three notebooks ship:
 
