@@ -101,9 +101,15 @@ echo "[3/4] Starting agent backend on :8000 (logs → $LOG_DIR/backend.log)..."
 pkill -f "python app.py" 2>/dev/null
 sleep 1
 
+# setsid puts the backend in its own session so it survives this script
+# exiting (postStartCommand returns, parent shell goes away). Without it,
+# Codespaces occasionally SIGHUPs the process group on script exit, which
+# leaves the forwarded port returning 502 even though the build appeared
+# to succeed in the logs.
 cd "$WORKSPACE/app/backend"
-nohup python app.py > "$LOG_DIR/backend.log" 2>&1 &
+setsid nohup python -u app.py > "$LOG_DIR/backend.log" 2>&1 < /dev/null &
 BACKEND_PID=$!
+disown $BACKEND_PID 2>/dev/null || true
 cd "$WORKSPACE"
 echo "  backend PID: $BACKEND_PID"
 
@@ -147,9 +153,17 @@ fi
 pkill -f "vite" 2>/dev/null
 sleep 1
 
+# Run vite directly (not through `npm run dev`) so we don't have an extra npm
+# wrapper that can disappear on SIGHUP and orphan the real server. setsid +
+# nohup + disown together make sure the dev server keeps running after this
+# postStartCommand returns — without all three, Codespaces sometimes serves
+# 502 on the forwarded :3000 URL because vite was reaped on script exit.
 cd "$WORKSPACE/app/frontend"
-nohup npm run dev -- --host 0.0.0.0 > "$LOG_DIR/frontend.log" 2>&1 &
+VITE_BIN="$WORKSPACE/app/frontend/node_modules/vite/bin/vite.js"
+setsid nohup node "$VITE_BIN" --host 0.0.0.0 --port 3000 --clearScreen false \
+  > "$LOG_DIR/frontend.log" 2>&1 < /dev/null &
 FRONTEND_PID=$!
+disown $FRONTEND_PID 2>/dev/null || true
 cd "$WORKSPACE"
 echo "  frontend PID: $FRONTEND_PID"
 
@@ -172,6 +186,21 @@ done
 if [ $FRONTEND_OK -eq 0 ] && kill -0 "$FRONTEND_PID" 2>/dev/null; then
   echo "  WARNING: frontend didn't bind to :3000 within 60s. Tail of log:"
   tail -20 "$LOG_DIR/frontend.log" | sed 's/^/    /'
+fi
+
+# Belt-and-suspenders: verify the frontend is still listening 5s after the
+# initial ready check. Vite's first HTTP response can succeed before its
+# module graph is built; if dependency resolution then errors out, the
+# process exits and the codespace proxy returns 502 to the next request.
+# This catches that case and dumps the log instead of silently leaving the
+# user with a dead UI.
+if [ $FRONTEND_OK -eq 1 ]; then
+  sleep 5
+  if ! kill -0 "$FRONTEND_PID" 2>/dev/null || ! curl -sf http://localhost:3000 > /dev/null 2>&1; then
+    echo "  ERROR: frontend reported ready but is no longer responsive. Tail of log:"
+    tail -40 "$LOG_DIR/frontend.log" | sed 's/^/    /'
+    FRONTEND_OK=0
+  fi
 fi
 
 # -----------------------------------------------------------------------------

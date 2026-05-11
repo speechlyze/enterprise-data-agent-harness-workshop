@@ -18,15 +18,16 @@ echo "============================================"
 
 WORKSPACE="${WORKSPACE:-$(pwd)}"
 
-# Surface upfront whether we have an LLM key. The seed step works without one
+# Surface upfront whether we have an OCI key. The seed step works without one
 # (memory-extraction is best-effort) but the app's chat loop will fail without it.
-if [ -z "${OPENAI_API_KEY:-}" ] && [ -z "${OCI_GENAI_API_KEY:-}" ]; then
+# This workshop is OCI-only; OpenAI variables are intentionally left blank.
+if [ -z "${OCI_GENAI_API_KEY:-}" ]; then
   echo ""
-  echo "  ⚠️  No LLM key found in environment (OPENAI_API_KEY / OCI_GENAI_API_KEY)."
+  echo "  ⚠️  No OCI GenAI key found in environment (OCI_GENAI_API_KEY)."
   echo "      Setup will proceed and the workshop notebook will work for everything"
   echo "      except the chat loop. To enable the chat loop later:"
   echo ""
-  echo "        echo 'OPENAI_API_KEY=sk-...' >> $WORKSPACE/app/.env"
+  echo "        echo 'OCI_GENAI_API_KEY=...' >> $WORKSPACE/app/.env"
   echo "        bash .devcontainer/start_app.sh"
   echo ""
 fi
@@ -115,8 +116,10 @@ env_path = pathlib.Path(os.environ.get("WORKSPACE", os.getcwd())) / "app" / ".en
 text = env_path.read_text()
 
 def set_kv(text, key, value):
-    if not value:
-        return text
+    """Set KEY=value in the .env text, adding the line if absent. An empty
+    value clears the key (writes `KEY=`) — important for OPENAI_API_KEY etc.
+    where the .env file must explicitly contain the blank to disable a
+    fallback path."""
     lines = text.splitlines()
     found = False
     for i, line in enumerate(lines):
@@ -128,23 +131,19 @@ def set_kv(text, key, value):
         lines.append(f"{key}={value}")
     return "\n".join(lines) + "\n"
 
-# Pick the right LLM provider based on which key is set.
-# OCI is preferred when OCI_GENAI_API_KEY is set — primary model is xai.grok-4.3.
-# OPENAI_API_KEY (when present) becomes the fallback via LlmRouter, NOT the primary.
+# OCI-only workshop. Always pin LLM_PROVIDER=oci and the OCI primary model.
+# Inject OCI_GENAI_API_KEY / OCI_GENAI_ENDPOINT from Codespaces secrets when
+# present. OPENAI_API_KEY is deliberately blanked — keeping it empty in .env
+# means OCI failures surface as errors instead of silently falling back.
+text = set_kv(text, "LLM_PROVIDER", "oci")
+text = set_kv(text, "LLM_MODEL", "xai.grok-4.3")     # heal any stale LLM_MODEL
+text = set_kv(text, "OPENAI_API_KEY", "")            # enforce OCI-only
+text = set_kv(text, "LLM_FALLBACK_MODEL", "")        # enforce OCI-only
+
 if os.environ.get("OCI_GENAI_API_KEY"):
-    text = set_kv(text, "LLM_PROVIDER", "oci")
-    text = set_kv(text, "LLM_MODEL", "xai.grok-4.3")     # heal any stale LLM_MODEL
     text = set_kv(text, "OCI_GENAI_API_KEY", os.environ["OCI_GENAI_API_KEY"])
-    if os.environ.get("OCI_GENAI_ENDPOINT"):
-        text = set_kv(text, "OCI_GENAI_ENDPOINT", os.environ["OCI_GENAI_ENDPOINT"])
-    # If OPENAI_API_KEY is also injected via Codespaces secrets, include it so
-    # the LlmRouter can use it as a transparent fallback if OCI errors out.
-    if os.environ.get("OPENAI_API_KEY"):
-        text = set_kv(text, "OPENAI_API_KEY", os.environ["OPENAI_API_KEY"])
-elif os.environ.get("OPENAI_API_KEY"):
-    text = set_kv(text, "LLM_PROVIDER", "openai")
-    text = set_kv(text, "LLM_MODEL", "gpt-5.5")
-    text = set_kv(text, "OPENAI_API_KEY", os.environ["OPENAI_API_KEY"])
+if os.environ.get("OCI_GENAI_ENDPOINT"):
+    text = set_kv(text, "OCI_GENAI_ENDPOINT", os.environ["OCI_GENAI_ENDPOINT"])
 
 if os.environ.get("TAVILY_API_KEY"):
     text = set_kv(text, "TAVILY_API_KEY", os.environ["TAVILY_API_KEY"])
