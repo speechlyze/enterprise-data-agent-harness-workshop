@@ -206,6 +206,16 @@ fi
 # -----------------------------------------------------------------------------
 # Summary
 # -----------------------------------------------------------------------------
+# If we're inside Codespaces, surface the public URL for the UI as well. The
+# preview should auto-open via onAutoForward, but printing a clickable URL
+# here gives the user a fallback if the preview was dismissed or didn't
+# trigger on this particular VS Code build.
+PUBLIC_UI_URL=""
+if [ -n "${CODESPACE_NAME:-}" ]; then
+  DOMAIN="${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-app.github.dev}"
+  PUBLIC_UI_URL="https://${CODESPACE_NAME}-3000.${DOMAIN}"
+fi
+
 echo ""
 echo "============================================"
 echo "  Status:"
@@ -214,6 +224,9 @@ echo "    Backend:  $([ $BACKEND_OK  -eq 1 ] && echo OK || echo 'NOT READY (chec
 echo "    Frontend: $([ $FRONTEND_OK -eq 1 ] && echo OK || echo 'NOT READY (check log)')"
 echo ""
 echo "  • Frontend (UI):   http://localhost:3000   (auto-forwarded by Codespaces)"
+if [ -n "$PUBLIC_UI_URL" ]; then
+  echo "    Public URL:      $PUBLIC_UI_URL"
+fi
 echo "  • Backend (API):   http://localhost:8000"
 echo "  • Notebook:        workshop/notebook_student.ipynb"
 echo ""
