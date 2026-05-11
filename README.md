@@ -20,9 +20,9 @@ The notebook is **11 parts with 6 hands-on coding TODOs**. Every "true setup" ta
 
 | Notebook | When to open |
 |---|---|
-| `notebook_student.ipynb` | Your working notebook — 6 TODO stubs, asserts that fail loudly if a TODO is wrong |
-| `notebook_complete.ipynb` | TODO solutions filled in; everything else is the same |
-| `notebook_complete_with_setup_code.ipynb` | Full source including all Oracle DDL — useful when you want to deploy against an Oracle that *isn't* the workshop Codespace |
+| [`notebook_student.ipynb`](workshop/notebook_student.ipynb) | Your working notebook — 6 TODO stubs, asserts that fail loudly if a TODO is wrong |
+| [`notebook_complete.ipynb`](workshop/notebook_complete.ipynb) | TODO solutions filled in; everything else is the same |
+| [`notebook_complete_with_setup_code.ipynb`](workshop/notebook_complete_with_setup_code.ipynb) | Full source including all Oracle DDL — useful when you want to deploy against an Oracle that *isn't* the workshop Codespace |
 
 The whole loop is roughly 300 lines of Python; the rest is database primitives.
 
