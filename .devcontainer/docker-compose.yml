@@ -1,6 +1,14 @@
 services:
   oracle:
-    image: gvenzl/oracle-free:23-slim
+    # NOTE: NOT the `-slim` variant. The workshop requires Oracle Spatial
+    # (SDO_GEOMETRY for vessel_positions / ports) AND Oracle Text
+    # (CTXSYS.CONTEXT index for the Part 3 hybrid retrieval). The slim image
+    # strips both. Use the regular `23` tag (~10 GB, full feature set).
+    #
+    # `faststart` variant: same content as `23`, but the database is
+    # pre-initialized inside the image, so first container start is ~10 s
+    # instead of the 5-minute initdb dance. Worth the bigger pull on a Codespace.
+    image: gvenzl/oracle-free:23-faststart
     container_name: oracle-free
     environment:
       ORACLE_PASSWORD: OraclePwd_2025

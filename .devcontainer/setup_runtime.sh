@@ -42,6 +42,24 @@ done
 # --- 2. Start Oracle container ---
 echo ""
 echo "[2/5] Starting Oracle AI Database (this can take 3-5 minutes on first run)..."
+
+# If a previous oracle-free container is on the slim image (which strips Spatial
+# and Text), its data volume is unusable with the new full image because the
+# stored data files reference type definitions the new install also has — but
+# the SUPPLYCHAIN seed will already have partially failed against slim, leaving
+# half-created users/objects. Easier to start fresh: remove the container AND
+# its volume if the existing image tag has `slim` in it.
+EXISTING_IMAGE=$(docker inspect oracle-free --format '{{.Config.Image}}' 2>/dev/null || true)
+if [ -n "$EXISTING_IMAGE" ] && echo "$EXISTING_IMAGE" | grep -q 'slim'; then
+  echo "  ⚠ existing oracle-free is on slim image ($EXISTING_IMAGE); removing it + its volume"
+  echo "    so we can re-create on the full image (needs Spatial + Text)."
+  docker rm -f oracle-free > /dev/null 2>&1 || true
+  # The compose volume name is <project>_oracle-data; both naming conventions:
+  docker volume rm enterprise-data-agent-harness-workshop_oracle-data 2>/dev/null || true
+  docker volume rm devcontainer_oracle-data 2>/dev/null || true
+  # If using the bind-mount fallback path, no volume to remove.
+fi
+
 docker rm -f oracle-free > /dev/null 2>&1 || true
 docker compose -f "$WORKSPACE/.devcontainer/docker-compose.yml" up -d oracle 2>/dev/null
 echo "  Container started."
