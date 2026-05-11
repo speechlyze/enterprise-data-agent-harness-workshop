@@ -62,6 +62,25 @@ Every SELECT in this session is rewritten by the kernel to apply the row policy 
 tool_run_sql receives the filtered result set. Same prompt, same generated SQL, *different* result per identity.
 ```
 
+## TODO 6: Implement `set_identity`
+
+`set_identity(end_user, clearance=None)` is the **only line of Python** that bridges your app-layer identity to Oracle's kernel-enforced DDS policy. Call the trusted `AGENT.set_eda_ctx` procedure on `agent_conn`:
+
+```python
+def set_identity(end_user, clearance=None):
+    """Set the EDA_CTX identity on agent_conn for subsequent SQL."""
+    with agent_conn.cursor() as cur:
+        cur.callproc(f"{AGENT_USER}.set_eda_ctx", [end_user, clearance])
+```
+
+Three details worth understanding:
+
+1. **Why a `callproc` and not `DBMS_SESSION.SET_CONTEXT(...)` directly?** The `EDA_CTX` namespace was created `USING AGENT.set_eda_ctx`, which tells the kernel: *only that procedure may write to this namespace*. A prompt-injected agent that tries to call `DBMS_SESSION.SET_CONTEXT` itself is rejected. The trust boundary lives inside the database.
+2. **Passing `None` clears the identity.** `AGENT.set_eda_ctx` accepts `NULL` for both arguments and clears the namespace. The hard-stop assert exercises this — your TODO must clear cleanly so identity doesn't bleed across turns.
+3. **It runs on `agent_conn`.** Application context in Oracle is *session-scoped*. The same connection that subsequently runs `tool_run_sql` will read the same context. That's why the DDS row policy on `voyages.ocean_region` and the column mask on `cargo_items.unit_value_cents` can `SYS_CONTEXT('EDA_CTX', 'END_USER')` without any extra plumbing.
+
+The hard-stop assert below your implementation calls `set_identity("apac.fleet@acme.com", "STANDARD")`, reads `SYS_CONTEXT('EDA_CTX', 'END_USER')` back, then calls `set_identity(None)` and re-reads to confirm the cleared state.
+
 ## How `agent_turn` Wraps This Up
 
 The pre-built version of `agent_turn` (re-defined in §6 of the notebook) takes two extra parameters:

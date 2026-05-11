@@ -1,6 +1,6 @@
 # Workshop TODO Checklist
 
-**6 hands-on coding TODOs across 11 parts.** Every "true setup" task (Oracle DDL, seed data, ONNX models, DDS policies, scheduler job) was run by the Codespace before you opened the notebook — you don't see it in the workshop notebook unless you open `notebook_complete_with_setup_code.ipynb` (the full-source version for advanced learners).
+**9 hands-on coding TODOs across 11 parts.** Every "true setup" task (Oracle DDL, seed data, ONNX models, DDS policies, scheduler job) was run by the Codespace before you opened the notebook — you don't see it in the workshop notebook unless you open `notebook_complete_with_setup_code.ipynb` (the full-source version for advanced learners).
 
 Each TODO has a **hard-stop assert checkpoint** right below it. If you skip a TODO or get it wrong, the next cell raises an `AssertionError` so you can't accidentally barrel forward with broken state.
 
@@ -17,6 +17,7 @@ Each TODO has a **hard-stop assert checkpoint** right below it. If you skip a TO
 ### Part 3 — Retrieval ([Guide](part-3-retrieval.md))
 
 2. Implement `retrieve_knowledge` — cosine search + rerank.  **TODO 2**
+3. Implement `hybrid_rrf_search_memories` — vector + keyword fused via Reciprocal Rank Fusion in one SQL.  **TODO 3**
 
 *(The three-way RRF probe is a demo cell — run it and observe the `r_vec` / `r_txt` ranks.)*
 
@@ -30,21 +31,23 @@ Each TODO has a **hard-stop assert checkpoint** right below it. If you skip a TO
 
 ### Part 6 — Tools & Skills ([Guide](part-6-tools-and-skills.md))
 
-3. Register `tool_run_sql` with the `@register` decorator.  **TODO 3**
+4. Register `tool_run_sql` with the `@register` decorator.  **TODO 4**
 
 ### Part 7 — The Agent Loop ([Guide](part-7-agent-loop.md))
 
-4. Implement `agent_turn` — the dispatch loop.  **TODO 4**
+5. Implement `agent_turn` — the dispatch loop.  **TODO 5**
 
 *(The three-turn end-to-end demo runs after the assert passes.)*
 
 ### Part 8 — Identity-Aware Authorization with DDS ([Guide](part-8-dds-identity.md))
 
-*No TODO.* The DDS policies were pre-installed by `app/scripts/setup_advanced.py`. The notebook adds the `set_identity` helper, wraps `agent_turn` to take an `end_user`, and runs the two-identity comparison.
+6. Implement `set_identity` — bridge `end_user` / `clearance` into the `EDA_CTX` namespace via the trusted `AGENT.set_eda_ctx` procedure.  **TODO 6**
+
+*(The DDS-aware `agent_turn` wrapper and the two-identity comparison run after the assert.)*
 
 ### Part 9 — JSON Relational Duality Views ([Guide](part-9-duality-views.md))
 
-5. Register `tool_get_document` — read a full document by primary key.  **TODO 5**
+7. Register `tool_get_document` — read a full document by primary key.  **TODO 7**
 
 ### Part 10 — Continuous Scans via DBMS_SCHEDULER ([Guide](part-10-scheduler.md))
 
@@ -52,6 +55,5 @@ Each TODO has a **hard-stop assert checkpoint** right below it. If you skip a TO
 
 ### Part 11 — Tool-Output Offload ([Guide](part-11-tool-output-offload.md))
 
-6. Register `tool_fetch_tool_output` — recover full bytes by `tool_call_id`.  **TODO 6**
-
-*(Then the notebook redefines `agent_turn` to use `log_tool` + the truncation marker.)*
+8. Implement `log_tool` — persist the full tool output as an OAMP memory keyed by `tool_call_id`.  **TODO 8**
+9. Register `tool_fetch_tool_output` — recover full bytes by `tool_call_id`.  **TODO 9**

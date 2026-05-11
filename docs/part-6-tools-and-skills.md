@@ -55,7 +55,7 @@ Three things happen:
 
 The `_build_schema` helper requires every tool to have a docstring — without one, retrieval would have nothing to embed. **Always write a docstring.** It is the tool'''s public spec.
 
-## TODO 3: Register `tool_run_sql`
+## TODO 4: Register `tool_run_sql`
 
 `run_sql` is the agent'''s primary way to query live data. It must be **read-only** — `SELECT` and `WITH` only, no DDL, no DML. The agent shouldn'''t be able to `DROP TABLE` even if a hostile prompt asks it to.
 

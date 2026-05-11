@@ -94,9 +94,9 @@ After you implement it, the next cell scans `SUPPLYCHAIN` and runs a probe query
 [column       ] SUPPLYCHAIN.VESSELS.CAPACITY_TEU  Column SUPPLYCHAIN.VESSELS.CAPACITY_TEU of type NUMBER (nullable). Meaning: Cargo capacity in 20-foot equivalent units (TEU); never tons.
 ```
 
-## Hybrid Retrieval: Vector + Oracle Text via RRF
+## TODO 3: Implement `hybrid_rrf_search_memories`
 
-Pure vector search is strong on meaning but **under-weights exact tokens**. If the user types `TEU` or an `ORA-00904` error code, they want the row that *literally contains the string*, not one that'''s vaguely similar.
+Pure vector search is strong on meaning but **under-weights exact tokens**. If the user types `TEU` or an `ORA-00904` error code, they want the row that *literally contains the string*, not one that's vaguely similar.
 
 The fix is **Reciprocal Rank Fusion** — run two retrievals (vector + full-text), combine the rankings:
 
@@ -104,7 +104,7 @@ $$\text{score}(d) = \frac{1}{k + r_{\text{vec}}(d)} + \frac{1}{k + r_{\text{text
 
 where $r_{\text{vec}}$ and $r_{\text{text}}$ are 1-based ranks from each retriever (sentinel `999999` when a doc is missing from one list), and $k=60$ is the standard smoothing constant.
 
-RRF doesn'''t care about absolute scores from each retriever — only the relative ranks — so it'''s robust to whatever scoring scheme each side uses.
+RRF doesn't care about absolute scores from each retriever — only the relative ranks — so it's robust to whatever scoring scheme each side uses.
 
 Two prerequisites — both already in this Oracle:
 
@@ -115,15 +115,78 @@ Two prerequisites — both already in this Oracle:
 
 The fusion happens in **one SQL statement** — vector CTE, text CTE, FULL OUTER JOIN on memory id, RRF score computed inline, sort + fetch top-k. No round trip to Python.
 
-The `hybrid_rrf_search_memories` function is **pre-built**. Read it once — it'''s the most opaque SQL in the workshop and worth understanding.
+**Solution:**
+
+```python
+MEMORY_TABLE = "eda_onnx_memory"
+
+def hybrid_rrf_search_memories(query, k=5, per_list=30, rrf_k=60):
+    sql = f"""
+        WITH q_emb AS (
+            SELECT TO_VECTOR(VECTOR_EMBEDDING({ONNX_EMBED_MODEL} USING :q AS DATA),
+                             384, FLOAT64) AS emb
+              FROM dual),
+        vec AS (
+            SELECT m.record_id,
+                   DBMS_LOB.SUBSTR(m.content, 4000, 1) AS content, m.metadata,
+                   ROW_NUMBER() OVER (
+                       ORDER BY VECTOR_DISTANCE(c.embedding, q_emb.emb, COSINE)
+                   ) AS r_vec
+              FROM {MEMORY_TABLE} m
+              JOIN eda_onnx_record_chunks c ON c.source_id = m.record_id
+              CROSS JOIN q_emb
+             WHERE m.user_id = :u AND m.agent_id = :a
+               AND (JSON_VALUE(m.metadata, '$.kind') IS NULL
+                    OR JSON_VALUE(m.metadata, '$.kind') <> 'tool_output')
+             FETCH FIRST :n ROWS ONLY),
+        txt AS (
+            SELECT m.record_id,
+                   DBMS_LOB.SUBSTR(m.content, 4000, 1) AS content, m.metadata,
+                   ROW_NUMBER() OVER (ORDER BY SCORE(1) DESC) AS r_txt
+              FROM {MEMORY_TABLE} m
+             WHERE CONTAINS(m.content, :kw, 1) > 0
+               AND m.user_id = :u AND m.agent_id = :a
+               AND (JSON_VALUE(m.metadata, '$.kind') IS NULL
+                    OR JSON_VALUE(m.metadata, '$.kind') <> 'tool_output')
+             FETCH FIRST :n ROWS ONLY)
+        SELECT COALESCE(v.record_id, t.record_id) AS record_id,
+               COALESCE(v.content, t.content)     AS content,
+               COALESCE(v.metadata, t.metadata)   AS metadata,
+               NVL(v.r_vec, 999999) AS r_vec,
+               NVL(t.r_txt, 999999) AS r_txt,
+               ( 1.0/(:rrf_k + NVL(v.r_vec, 999999))
+               + 1.0/(:rrf_k + NVL(t.r_txt, 999999)) ) AS rrf_score
+          FROM vec v
+          FULL OUTER JOIN txt t ON v.record_id = t.record_id
+         ORDER BY rrf_score DESC
+         FETCH FIRST :k ROWS ONLY
+    """
+    with agent_conn.cursor() as cur:
+        kw = f'"{query}"' if " " in query.strip() else query
+        cur.execute(sql, q=query, kw=kw, u=USER_ID, a=AGENT_ID,
+                    n=per_list, rrf_k=rrf_k, k=k)
+        rows = []
+        for rec_id, content, meta, r_vec, r_txt, rrf in cur:
+            if hasattr(content, "read"):
+                content = content.read()
+            rows.append({"record_id": rec_id,
+                         "kind": (meta or {}).get("kind", "memory"),
+                         "subject": (meta or {}).get("subject", ""),
+                         "content": str(content or "")[:500],
+                         "r_vec": int(r_vec), "r_txt": int(r_txt),
+                         "rrf_score": float(rrf)})
+    return rows
+```
+
+The hard-stop assert below your implementation runs the SQL against a real query and asserts the shape — `r_vec` and `r_txt` are ints (rank sentinels), `rrf_score` is a float, and at least one hit comes back.
 
 ## The three-way retrieval probe (just run)
 
-The pre-built `hybrid_rrf_search_memories(query, k)` returns a list with each hit annotated by `r_vec`, `r_txt`, and `rrf_score`. Run the same query through:
+Your `hybrid_rrf_search_memories(query, k)` (TODO 3) returns a list with each hit annotated by `r_vec`, `r_txt`, and `rrf_score`. Run the same query through:
 
 - `retrieve_knowledge(probe_q, k=3)` — vector only (your TODO 2)
 - `keyword_search_memories(probe_q, k=3)` — Oracle Text only
-- `hybrid_rrf_search_memories(probe_q, k=3)` — fused via RRF
+- `hybrid_rrf_search_memories(probe_q, k=3)` — fused via RRF (your TODO 3)
 
 with this query:
 

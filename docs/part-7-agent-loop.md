@@ -33,7 +33,7 @@ The pre-built `SYSTEM_PROMPT` is the agent'''s job description. It tells the mod
 
 These are the rules that turn a model into an *agent* — without them, GPT-class models often skip the JS hop, compute aggregates in their head, and confidently quote wrong numbers.
 
-## TODO 4: Implement `agent_turn`
+## TODO 5: Implement `agent_turn`
 
 This is the heart of the harness. Spend time on it — once you understand `agent_turn`, you understand the whole workshop.
 

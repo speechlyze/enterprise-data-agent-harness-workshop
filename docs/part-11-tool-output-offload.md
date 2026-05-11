@@ -10,7 +10,7 @@ Three glued-together pieces:
 2. **Truncation marker** — outputs over 600 bytes are replaced in the message list with a compact preview ending in `...[+N bytes. full output: fetch_tool_output(tool_call_id='call_…')]`. The model knows where to find the rest.
 3. **`fetch_tool_output(tool_call_id)`** — a registered tool that recovers the full bytes by id when the agent decides it needs them.
 
-The pre-built cell does all three in one go: defines `log_tool`, registers `fetch_tool_output`, and **redefines** `agent_turn` to call `log_tool` and emit the truncation marker. Re-run cell §11's `agent_turn` to revert to the minimal version.
+Pieces 1 and 3 are your **TODO 8** and **TODO 9**. Piece 2 (the `agent_turn` redefinition with the truncation marker) is the pre-built cell at the end of Part 11 — re-run cell §11's `agent_turn` to revert to the minimal version.
 
 ## The math
 
@@ -24,9 +24,34 @@ After offload + truncation:
 
 Most truncated outputs are **never refetched** — the model only pulls full bytes when its preview isn't enough. Bandwidth follows attention.
 
-## (removed; connection is pre-built): Register `tool_fetch_tool_output`
+## TODO 8: Implement `log_tool`
 
-This is the agent-side retrieval tool. The agent calls it when its inlined preview was truncated and it needs the missing bytes to answer.
+The write side of offload. Every dispatch persists the **full** tool output as an OAMP memory tagged `kind=tool_output` with the LLM's `tool_call_id`.
+
+**Solution:**
+
+```python
+def log_tool(thread_id, tool_call_id, tool_name, tool_args, tool_output):
+    memory_client.add_memory(
+        tool_output,
+        user_id=USER_ID, agent_id=AGENT_ID,
+        thread_id=thread_id,
+        metadata={
+            "kind": "tool_output",
+            "tool_call_id": tool_call_id,
+            "tool_name": tool_name,
+            "tool_args": json.dumps(tool_args),
+        },
+    )
+```
+
+The metadata shape isn't optional — TODO 9 (`tool_fetch_tool_output`) looks rows up by `metadata_filter={"kind": "tool_output", "tool_call_id": ...}`, so the keys here must match. `tool_args` is JSON-serialised so OAMP's metadata store (a JSON column) can index it without a custom encoder for whatever Python types the caller passed in.
+
+The hard-stop assert below your implementation calls `log_tool` with a synthetic `tool_call_id`, then queries OAMP with the same metadata filter and checks the row came back with the right shape.
+
+## TODO 9: Register `tool_fetch_tool_output`
+
+The read side, mirror image of TODO 8. The agent calls this when its inlined preview was truncated and it needs the missing bytes to answer.
 
 The lookup uses OAMP's `metadata_filter`:
 

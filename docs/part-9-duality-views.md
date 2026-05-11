@@ -31,7 +31,7 @@ The Part 8 row policy on `voyages.ocean_region` is enforced **inside** the duali
 
 Both are read-only — no `WITH UPDATE` clause, so DML through them is rejected by the kernel.
 
-## TODO 5: Register `tool_get_document`
+## TODO 7: Register `tool_get_document`
 
 Read one full document from a duality view by primary key. The agent calls this instead of writing JOINs whenever it needs the full shape of an entity.
 
