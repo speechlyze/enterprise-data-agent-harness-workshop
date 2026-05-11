@@ -119,23 +119,42 @@ def _emit(socketio, event: str, payload: dict, room: str | None = None) -> None:
         socketio.emit(event, payload)
 
 
-def _emit_token_usage(socketio, sid, resp, step: int) -> None:
+def _emit_token_usage(socketio, sid, resp, step: int, llm_client=None) -> None:
     """Pull `usage` off a ChatCompletion response and emit it to the client.
 
     OpenAI returns prompt_tokens / completion_tokens / total_tokens. OCI's
     OpenAI-compatible endpoint returns the same shape. If the provider omits
     usage we send zeros so the front-end's running totals stay consistent.
+
+    `model` reflects the **active** provider's model at the time of the call —
+    so if the LlmRouter has silently fallen back from OCI grok-4.3 to OpenAI
+    gpt-5.5 (auth/404/network), the UI shows the model that actually served
+    this turn, not the originally-configured one.
     """
     if socketio is None:
         return
     usage = getattr(resp, "usage", None)
+
+    # Use the live router state when available; fall back to the static
+    # LLM_MODEL constant if the caller didn't pass the client through.
+    active_model = LLM_MODEL
+    using_fallback = False
+    if llm_client is not None and hasattr(llm_client, "info"):
+        try:
+            info = llm_client.info()
+            active_model = info.get("active_model") or LLM_MODEL
+            using_fallback = bool(info.get("using_fallback"))
+        except Exception:
+            pass
+
     payload = {
         "step": step,
         "prompt": getattr(usage, "prompt_tokens", 0) or 0,
         "completion": getattr(usage, "completion_tokens", 0) or 0,
         "total": getattr(usage, "total_tokens", 0) or 0,
-        "model": LLM_MODEL,
+        "model": active_model,
         "model_max": LLM_MODEL_MAX_TOKENS,
+        "using_fallback": using_fallback,
     }
     _emit(socketio, "token_usage", payload, sid)
 
@@ -216,7 +235,7 @@ def _run_turn_loop(
 
         # Surface token usage to the front-end so the right pane can show
         # how full the context window is, in real time as the loop runs.
-        _emit_token_usage(socketio, sid, resp, step)
+        _emit_token_usage(socketio, sid, resp, step, llm_client=llm_client)
 
         if not msg.tool_calls:
             final = msg.content or ""
@@ -291,7 +310,7 @@ def _run_turn_loop(
         messages.append({"role": "user",
                          "content": "Budget exhausted. Provide your best answer now, no more tools."})
         resp = chat_with_retry(llm_client, messages, tools=None)
-        _emit_token_usage(socketio, sid, resp, max_iterations)
+        _emit_token_usage(socketio, sid, resp, max_iterations, llm_client=llm_client)
         final = resp.choices[0].message.content or "(no answer produced)"
         trace.append({"type": "forced_finalize", "content": final})
 

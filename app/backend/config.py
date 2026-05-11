@@ -28,8 +28,12 @@ ONNX_EMBED_MODEL = os.environ.get("ONNX_EMBED_MODEL", "ALL_MINILM_L12_V2")
 ONNX_EMBED_DIM = int(os.environ.get("ONNX_EMBED_DIM", "384"))
 
 # LLM
-LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "openai").strip().lower()  # "openai" | "oci"
-LLM_MODEL = os.environ.get("LLM_MODEL", "gpt-5.5").strip()
+# Defaults: OCI / xai.grok-4.3 (the workshop's primary). If OPENAI_API_KEY is
+# also set, the LlmRouter in agent/llm.py will keep `gpt-5.5` (or whatever
+# LLM_FALLBACK_MODEL is) as a transparent fallback — it kicks in only if the
+# OCI primary errors out (auth, 404, network).
+LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "oci").strip().lower()  # "openai" | "oci"
+LLM_MODEL = os.environ.get("LLM_MODEL", "xai.grok-4.3").strip()
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
 
 

@@ -129,13 +129,21 @@ def set_kv(text, key, value):
     return "\n".join(lines) + "\n"
 
 # Pick the right LLM provider based on which key is set.
+# OCI is preferred when OCI_GENAI_API_KEY is set — primary model is xai.grok-4.3.
+# OPENAI_API_KEY (when present) becomes the fallback via LlmRouter, NOT the primary.
 if os.environ.get("OCI_GENAI_API_KEY"):
     text = set_kv(text, "LLM_PROVIDER", "oci")
+    text = set_kv(text, "LLM_MODEL", "xai.grok-4.3")     # heal any stale LLM_MODEL
     text = set_kv(text, "OCI_GENAI_API_KEY", os.environ["OCI_GENAI_API_KEY"])
     if os.environ.get("OCI_GENAI_ENDPOINT"):
         text = set_kv(text, "OCI_GENAI_ENDPOINT", os.environ["OCI_GENAI_ENDPOINT"])
+    # If OPENAI_API_KEY is also injected via Codespaces secrets, include it so
+    # the LlmRouter can use it as a transparent fallback if OCI errors out.
+    if os.environ.get("OPENAI_API_KEY"):
+        text = set_kv(text, "OPENAI_API_KEY", os.environ["OPENAI_API_KEY"])
 elif os.environ.get("OPENAI_API_KEY"):
     text = set_kv(text, "LLM_PROVIDER", "openai")
+    text = set_kv(text, "LLM_MODEL", "gpt-5.5")
     text = set_kv(text, "OPENAI_API_KEY", os.environ["OPENAI_API_KEY"])
 
 if os.environ.get("TAVILY_API_KEY"):
