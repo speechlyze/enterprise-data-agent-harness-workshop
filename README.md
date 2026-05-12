@@ -12,7 +12,7 @@
 
 This workshop is two halves of the same thing:
 
-1. **The notebook** (`workshop/notebook_student.ipynb`) — you build the harness from primitives. Long-term memory via OAMP, hybrid vector + Oracle Text retrieval, an HNSW-indexed `toolbox`, the `agent_turn` loop, identity-aware DDS row policies, JSON Relational Duality Views, the `DBMS_SCHEDULER` re-scan pattern, tool-output offload. **9 focused coding TODOs across 11 parts**, ~1 hour.
+1. **The notebook** (`workshop/notebook_student.ipynb`) — you build the harness from primitives. Long-term memory via OAMP, hybrid vector + Oracle Text retrieval, an HNSW-indexed `toolbox`, the `agent_turn` loop, identity-aware row + column policies (the [Oracle Deep Data Security](docs/part-8-dds-identity.md) pattern, implemented today via `DBMS_RLS` because Oracle Free doesn't yet accept the declarative DDS DDL — on a full 26ai DDS image the same setup script lands real DDS policies), JSON Relational Duality Views, the `DBMS_SCHEDULER` re-scan pattern, tool-output offload. **9 focused coding TODOs across 11 parts**, ~1 hour.
 
 2. **The app** (`app/`) — a Flask + React reference deployment of the *same* harness against the *same* Oracle, same OAMP store, same `toolbox` and `skillbox` the notebook populates. Chat UI on the left, live-updating memory pane on the right, 3D globe the agent can drive via tool calls. The Codespace boots the app for you on first launch and auto-opens the browser preview at `http://localhost:3000` — every harness piece you build in the notebook is wired up live in this app.
 
@@ -50,7 +50,7 @@ The whole loop is roughly 300 lines of Python; the rest is database primitives.
 | 5 | Oracle MLE compute sandbox | [Part 5](docs/part-5-mle.md) | — |
 | 6 | Tools & skills (vector-indexed registries) | [Part 6](docs/part-6-tools-and-skills.md) | **TODO 4** — `tool_run_sql` |
 | 7 | The agent loop | [Part 7](docs/part-7-agent-loop.md) | **TODO 5** — `agent_turn` |
-| 8 | Identity-aware authorization with DDS | [Part 8](docs/part-8-dds-identity.md) | **TODO 6** — `set_identity` |
+| 8 | Identity-aware authorization (DDS pattern, DBMS_RLS mechanism) | [Part 8](docs/part-8-dds-identity.md) | **TODO 6** — `set_identity` |
 | 9 | JSON Relational Duality Views | [Part 9](docs/part-9-duality-views.md) | **TODO 7** — `tool_get_document` |
 | 10 | Continuous scans via DBMS_SCHEDULER | [Part 10](docs/part-10-scheduler.md) | — |
 | 11 | Tool-output offload | [Part 11](docs/part-11-tool-output-offload.md) | **TODO 8** — `log_tool`<br>**TODO 9** — `tool_fetch_tool_output` |

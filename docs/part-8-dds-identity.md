@@ -1,17 +1,21 @@
-# Part 8: Identity-Aware Authorization with DDS
+# Part 8: Identity-Aware Authorization (DDS pattern, DBMS_RLS mechanism)
 
-By default the agent sees every row and column the `AGENT` DB user has been granted — it inherits the database user'''s privileges, period. **Real deployments need the trust boundary to follow the human in the loop**, not the DB user the agent runs as. A jailbroken prompt that gets the model to issue `SELECT * FROM SUPPLYCHAIN.cargo_items` should still come back filtered for the operator.
+By default the agent sees every row and column the `AGENT` DB user has been granted — it inherits the database user's privileges, period. **Real deployments need the trust boundary to follow the human in the loop**, not the DB user the agent runs as. A jailbroken prompt that gets the model to issue `SELECT * FROM SUPPLYCHAIN.cargo_items` should still come back filtered for the operator.
 
-**Oracle Deep Data Security (DDS)** in Oracle AI Database 26ai moves that boundary into the database kernel. You declare row, column, and cell-level rules in **declarative SQL**, and the engine enforces them transparently — no matter what SQL the agent constructs.
+**Oracle Deep Data Security (DDS)** in Oracle AI Database 26ai is the *production* answer to that. DDS lets you declare row, column, and cell-level rules in **declarative SQL** (`CREATE DATA SECURITY POLICY … USING (…)` / `… HIDE COLUMNS (…) WHEN (…)`), express them as **Data Grants**, and have end-user identity propagated to the kernel via OAuth2/JWT tokens (or application context). Real DDS replaces VPD + RAS with that declarative surface.
 
 ```
 end_user (real human or upstream caller)
        │  identity propagated via DBMS_SESSION.SET_CONTEXT
        ▼
-AGENT (database user)  ──── DDS policies evaluated by kernel ────▶ rows/cols filtered before tool sees them
+AGENT (database user)  ──── kernel-enforced policy evaluates on every SELECT ────▶ rows/cols filtered before tool sees them
 ```
 
-The agent doesn'''t decide what it can see — the database does.
+The agent doesn't decide what it can see — the database does.
+
+> **What this workshop actually runs vs. real DDS.** The Codespace ships Oracle AI Database Free, and that image doesn't yet accept the declarative `CREATE DATA SECURITY POLICY` DDL. `app/scripts/setup_advanced.py` tries the declarative path first and you'll see it log `[dds] declarative not available (ORA-901) — falling back to DBMS_RLS`. So in the running workshop the mechanism underneath is **`DBMS_RLS` (the VPD-era predicate engine that DDS supersedes)** — same trust boundary, same `SYS_CONTEXT`-driven enforcement, but expressed as PL/SQL policy functions instead of declarative DDL. On a full Oracle AI Database 26ai image with declarative DDS, the same `setup_advanced.py` would land real DDS policies. The Python you write in TODO 6 (`set_identity`) and the application-context propagation through `EDA_CTX` are identical in both worlds; only the policy DDL changes.
+>
+> See [`Introducing Oracle Deep Data Security`](https://blogs.oracle.com/database/introducing-oracle-deep-data-security-identity-aware-data-access-control-for-agentic-ai-in-oracle-ai-database-26ai) and the [Oracle Deep Data Security Guide](https://docs.oracle.com/en/database/oracle/oracle-database/26/ddscg/) for the full declarative surface and the OAuth2/IAM identity model.
 
 ## What We'''re Demoing
 
@@ -38,7 +42,7 @@ Everything except the demo. The setup cell creates:
 - **Row policy on `voyages.ocean_region`** — checks `EDA_CTX.END_USER` against `agent_authorizations`.
 - **Column mask on `cargo_items.unit_value_cents`** — returns `NULL` unless clearance is `EXECUTIVE`.
 
-The notebook tries the declarative `CREATE DATA SECURITY POLICY` syntax first; if the running image doesn'''t ship that surface yet, it falls back to `DBMS_RLS` — the kernel-level row/column security mechanism that DDS layers on top of. The semantics are identical.
+`setup_advanced.py` tries the declarative `CREATE DATA SECURITY POLICY` syntax first. On the Oracle AI Database Free image shipped with this Codespace it fails (`ORA-901`) and falls back to `DBMS_RLS` — the VPD-era policy engine that real DDS supersedes. The trust boundary, the application-context propagation, and the observable behaviour ("same SQL, two identities, different rows") are identical. What you'd gain on a full DDS-capable image is **declarative DDL** instead of policy functions, **cell-level masking** as a first-class predicate, **Data Grants** as the way you express who-gets-what, and **OAuth2/JWT-bound identity** for cross-tier propagation.
 
 ## Identity Propagation
 
@@ -152,10 +156,11 @@ This proves DDS is doing the work in the kernel — not in some Python pre-filte
 
 ## Key Takeaways — Part 8
 
-- **Move the trust boundary into the kernel.** A jailbroken prompt that synthesizes `SELECT * FROM cargo_items` should still come back filtered for the *human* in the loop — not the AGENT DB user. The agent doesn'''t decide what it can see; the database does.
-- **Identity propagates via application context.** `DBMS_SESSION.SET_CONTEXT('"'"'EDA_CTX'"'"', '"'"'END_USER'"'"', ...)` is the single channel. DDS / DBMS_RLS row policies read from it on every query, transparently to the agent code.
-- **TRUSTED PROCEDURE clause prevents self-elevation.** Only `AGENT.set_eda_ctx` can write to `EDA_CTX`. The agent can'''t bypass DDS by calling `DBMS_SESSION.SET_CONTEXT` from inside a tool — the namespace rejects writes from any other procedure.
+- **Move the trust boundary into the kernel.** A jailbroken prompt that synthesizes `SELECT * FROM cargo_items` should still come back filtered for the *human* in the loop — not the AGENT DB user. The agent doesn't decide what it can see; the database does.
+- **Identity propagates via application context.** `DBMS_SESSION.SET_CONTEXT('EDA_CTX', 'END_USER', …)` is the single channel. The row/column policies read from it on every query, transparently to the agent code. This propagation is the same whether the enforcement mechanism underneath is real DDS or its DBMS_RLS predecessor.
+- **TRUSTED PROCEDURE clause prevents self-elevation.** Only `AGENT.set_eda_ctx` can write to `EDA_CTX`. The agent can't bypass the policy by calling `DBMS_SESSION.SET_CONTEXT` from inside a tool — the namespace rejects writes from any other procedure.
 - **Same SQL, two identities, different rows.** Persona changes outside the agent; the agent code is unchanged. Authorization stops being an application-layer concern.
+- **You're learning the DDS pattern on a DBMS_RLS implementation.** This workshop runs on Oracle Free, which doesn't yet ship the declarative DDS DDL — but the pattern, the propagation, and the trust boundary all match real DDS. On a full 26ai DDS image you'd replace the policy functions with `CREATE DATA SECURITY POLICY … USING (…)` and `… HIDE COLUMNS (…) WHEN (…)`; nothing else changes.
 
 ## Troubleshooting
 
