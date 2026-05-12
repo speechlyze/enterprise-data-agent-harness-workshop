@@ -135,26 +135,49 @@ For permanent fixes, add `OPENAI_API_KEY` (or `OCI_GENAI_API_KEY`) as a [Codespa
 git clone https://github.com/speechlyze/enterprise-data-agent-harness-workshop
 cd enterprise-data-agent-harness-workshop
 
-# 1. Start Oracle AI Database
+# 1. Start Oracle AI Database (Docker, ~3 min on first run)
 docker compose -f .devcontainer/docker-compose.yml up -d oracle
 
 # 2. Install workshop notebook deps + app backend deps
 pip install -r requirements.txt
 pip install -r app/backend/requirements.txt
 
-# 3. Bootstrap + seed + advanced setup (one-time)
-cp app/.env.example app/.env       # edit and add OPENAI_API_KEY
-cd app && python scripts/bootstrap.py && python scripts/seed.py && python scripts/setup_advanced.py && cd ..
+# 3. Configure secrets
+cp app/.env.example app/.env       # OCI is the default — fill OCI_GENAI_API_KEY
 
-# 4. Install + build the frontend
+# 4. One-time database setup — RUN ALL THREE, in order
+cd app
+python scripts/bootstrap.py        # AGENT user, vector pool, ONNX embedder, DBFS
+python scripts/seed.py             # SUPPLYCHAIN schema + seed + JSON Duality Views
+python scripts/setup_advanced.py   # Oracle Text index + DDS row/column policies + scheduler job
+cd ..
+
+# 5. Install the frontend
 cd app/frontend && npm install && cd ../..
 
-# 5a. Run the notebook
+# 6a. Run the notebook
 jupyter lab workshop/notebook_student.ipynb
 
-# 5b. (When you finish the notebook) start the app — two terminals
+# 6b. (When you finish the notebook) start the app — two terminals
 cd app/backend && python app.py            # backend  → :8000
 cd app/frontend && npm run dev             # frontend → :3000
+```
+
+> **All three setup scripts are required.** `bootstrap.py` alone is not enough — the Part 8 DDS demo silently shows the *same* rows for every identity if you skip `setup_advanced.py` (the row policy never gets installed and `set_identity` writes to a namespace nothing reads). The Codespace runs all three in `postCreateCommand`; locally it's on you.
+
+**Verify the setup landed** before opening the notebook:
+
+```bash
+# Should print 2 — one row policy on VOYAGES, one column mask on CARGO_ITEMS
+python -c "
+import os, oracledb
+c = oracledb.connect(user='sys', password=os.environ.get('ORACLE_SYS_PASS','OraclePwd_2025'),
+                     dsn=os.environ.get('ORACLE_DSN','localhost:1521/FREEPDB1'),
+                     mode=oracledb.SYSDBA)
+with c.cursor() as cur:
+    cur.execute(\"SELECT COUNT(*) FROM dba_policies WHERE object_owner='SUPPLYCHAIN'\")
+    print('DBMS_RLS policies on SUPPLYCHAIN:', cur.fetchone()[0])
+"
 ```
 
 ## Running the App (after the notebook)
