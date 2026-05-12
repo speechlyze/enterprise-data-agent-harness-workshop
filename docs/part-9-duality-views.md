@@ -13,7 +13,7 @@ A duality view is a JSON projection over a set of tables joined by PK/FK/UK rela
 GPT-class models reason about JSON markedly better than they reason about tabular join results. Every time the agent asks *"tell me everything about voyage 7"*, the choice today is: write a 4-table JOIN, parse the rows, mentally reassemble the document. With a duality view the agent runs:
 
 ```sql
-SELECT JSON_SERIALIZE(data PRETTY) FROM voyage_dv WHERE data."_id" = 7
+SELECT JSON_SERIALIZE(data PRETTY) FROM voyage_dv WHERE JSON_VALUE(data, '$._id') = 7
 ```
 
 and gets the document back already shaped. Fewer tool turns, fewer hallucinated columns.
@@ -40,7 +40,7 @@ Read one full document from a duality view by primary key. The agent calls this 
 The query you need:
 
 ```sql
-SELECT JSON_SERIALIZE(data PRETTY) FROM SUPPLYCHAIN.{view} WHERE data."_id" = :k
+SELECT JSON_SERIALIZE(data PRETTY) FROM SUPPLYCHAIN.{view} WHERE JSON_VALUE(data, '$._id') = :k
 ```
 
 Bind `key` as an integer when it parses as a digit, otherwise as a string.
@@ -65,7 +65,7 @@ def tool_get_document(view: str, key: str) -> str:
         with agent_conn.cursor() as cur:
             cur.execute(
                 f"SELECT JSON_SERIALIZE(data PRETTY) FROM {DEMO_USER}.{view} "
-                f' WHERE data."_id" = :k',
+                f" WHERE JSON_VALUE(data, '$._id') = :k",
                 k=int(key) if str(key).isdigit() else key,
             )
             row = cur.fetchone()

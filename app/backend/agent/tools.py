@@ -711,7 +711,7 @@ def init_tools(agent_conn, memory_client, rerank=None, scratch=None):
             with _AGENT_CONN.cursor() as cur:
                 cur.execute(
                     f'SELECT JSON_SERIALIZE(data PRETTY) FROM {DEMO_USER}.{view} '
-                    f'WHERE data."_id" = :k',
+                    f"WHERE JSON_VALUE(data, '$._id') = :k",
                     k=int(key) if str(key).isdigit() else key,
                 )
                 row = cur.fetchone()
