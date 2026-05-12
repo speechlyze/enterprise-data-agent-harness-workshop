@@ -437,7 +437,7 @@ DV_DDL = [
                                          'weightKg' : ci.weight_kg
                                        } FROM cargo_items ci WHERE ci.container_id = c.container_id]
                           } FROM containers c WHERE c.voyage_id = v.voyage_id]
-       } FROM voyages v""",
+       } AS data FROM voyages v""",
 
     """CREATE OR REPLACE JSON RELATIONAL DUALITY VIEW vessel_dv AS
        SELECT JSON {
@@ -459,7 +459,7 @@ DV_DDL = [
                             'speedKnots' : p.speed_knots,
                             'headingDeg' : p.heading_deg
                           } FROM vessel_positions p WHERE p.vessel_id = v.vessel_id)
-       } FROM vessels v""",
+       } AS data FROM vessels v""",
 ]
 
 
